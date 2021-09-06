@@ -121,7 +121,7 @@ def update_all_stocks_2():
             ## fetch the latest data
             latest_data=fetch_stockprice_all(start_vals=hist_last_day+timedelta(days=1))
             
-            if latest_data.shape[0]>0:
+            if (latest_data.shape[0]/latest_data.Date.nunique())>=5000:
                 latest_data.loc[:,'REFRESH_DATE']=datetime.datetime.now()
                 latest_data=latest_data.loc[:,['Date','Open','High','Low','Close','Volume','SE','Stock','REFRESH_DATE']]
         
@@ -147,15 +147,14 @@ def update_all_stocks_2():
                 print('ALL_STOCK_HIST is updated with data as of {:s}'.format(latest_data_2.Date.max().strftime(format='%Y-%m-%d')))
             
             else:
-                print('Stock data not available')
+                print('Stock data not available; there are {:,.0f} NA records'.format(latest_data.Open.isnull().sum()))
         
         else:
             print('Not weekday')
     
     else:
         print('ALL_STOCK_HIST is already up-to-date, latest data: {:s}'.format(hist_last_day.strftime(format='%Y-%m-%d')))
-        
-    return datetime.datetime.now()-utc_tz
+    
 
 
 ###############
