@@ -120,8 +120,9 @@ def update_all_stocks_2():
         if utc_tz.astimezone(timezone('America/New_York')).weekday()+1<=5:
             ## fetch the latest data
             latest_data=fetch_stockprice_all(start_vals=hist_last_day+timedelta(days=1))
-            
-            if (latest_data.shape[0]/latest_data.Date.nunique())>=5000:
+           
+           ## Pull the data as long as they are available
+            if latest_data.shape[0]>0: # (latest_data.shape[0]/latest_data.Date.nunique())>=5000
                 latest_data.loc[:,'REFRESH_DATE']=datetime.datetime.now()
                 latest_data=latest_data.loc[:,['Date','Open','High','Low','Close','Volume','SE','Stock','REFRESH_DATE']]
         
