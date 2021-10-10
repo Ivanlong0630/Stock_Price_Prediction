@@ -50,10 +50,10 @@ def fetch_stockprice_all(stock_exchange=['NASDAQ','NYSE'],start_vals=None,n_samp
     all_tickers=pd.read_csv('/home/ubuntu/projects/Stock_Price_Prediction/data/NYSE_NASDAQ_Aug4_2021.csv')
     
     ## params ##
-    if start_vals==None:
-        period_vals='max'
-    else:
-        period_vals=None
+    #if start_vals==None:
+    #    period_vals='max'
+    #else:
+    #    period_vals=None
     if n_sample==None:
         all_tickers=all_tickers
     else:
@@ -65,15 +65,16 @@ def fetch_stockprice_all(stock_exchange=['NASDAQ','NYSE'],start_vals=None,n_samp
     for s in stock_exchange:
         for i in all_tickers.loc[all_tickers.SE==s,'Symbol'].tolist():
             if count%50==0:
-                time.sleep(3)
-                print('Wait every 50 queries; Progress: {:.2f}%'.format(count/all_tickers.shape[0]*100))
-            
+            #   time.sleep(3)
+            #   print('Wait every 50 queries; Progress: {:.2f}%'.format(count/all_tickers.shape[0]*100))
+                print('Progress: {:.2f}%'.format(count/all_tickers.shape[0]*100))
+
             df=yf.download(tickers=i,
-                           periods=period_vals,
+                           periods='max',
                            start=start_vals,
                            interval='1d',
                            groupby='ticker',
-                           auto_adjust=True,
+                           #auto_adjust=True,
                            prepose=False,
                            threads=True,
                            proxy=None
@@ -163,7 +164,7 @@ def update_all_stocks_2():
 ###############
 with DAG('Stock_Price_Prediction',
          default_args=yf_args,
-         schedule_interval='20 0,2,22 * * *',
+         schedule_interval='0 0,2 * * *',
          catchup=False
         ) as dag:
     t_data_load=PythonOperator(task_id='Yahoo_Finance_Data_Pull',python_callable=update_all_stocks_2)
