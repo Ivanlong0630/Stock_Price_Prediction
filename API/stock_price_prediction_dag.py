@@ -15,7 +15,6 @@ from sqlalchemy import create_engine
 import mysql.connector
 import yfinance as yf
 
-
 ## Airflow setup
 yf_args={'owner':'airflow',
          'depends_on_past':False,
@@ -247,6 +246,9 @@ def pull_stock_recommendatins(stocks=None,n_sample=None):
         except AttributeError:
             continue
 
+        except ERROR:
+            continue
+
     df_col=pd.concat(df_col)
     df_col.rename(columns={'Date':'DATE',
                            'Firm':'FIRM',
@@ -285,6 +287,9 @@ def pull_stock_insti_holders(stocks=None,n_sample=None):
                                                               count/len(stocks)*100
                                                              ))
         except AttributeError:
+            continue
+
+        except Error:
             continue
 
     df_col=pd.concat(df_col)
@@ -356,8 +361,8 @@ with DAG('Stock_Price_Prediction',
     Load_recommendations_InstiHolders=PythonOperator(task_id='Load_recommendations_institutional_holders',python_callable=load_Recommends_InstiHolders)
 
     
-    yf_data_load>>[Pull_stock_attri,Pull_stock_recommendations, Pull_stock_insti_holders]
-    Pull_stock_attri>>Load_stock_attri
-    [Pull_stock_recommendations, Pull_stock_insti_holders]>>Load_recommendations_InstiHolders
-
+#yf_data_load>>[Pull_stock_attri,Pull_stock_recommendations, Pull_stock_insti_holders]
+yf_data_load>> Pull_stock_attri >> [Pull_stock_recommendations, Pull_stock_insti_holders]
+Pull_stock_attri>>Load_stock_attri
+[Pull_stock_recommendations, Pull_stock_insti_holders]>>Load_recommendations_InstiHolders
 # use with: https://airflow.apache.org/docs/apache-airflow/stable/tutorial.html
