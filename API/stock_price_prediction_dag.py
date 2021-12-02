@@ -197,9 +197,18 @@ def pull_stock_attri(stocks=None,n_sample=None):
                                                               count/len(stocks)*100
                                                              ))
         
+            if count%500==0:
+                time.sleep(1)
+        
         except KeyError:
             continue
-    
+        
+        except AttributeError:
+            continue
+
+        except Exception as ex:
+            print(ex)
+
     col_attri_df=pd.DataFrame(col_attri)
     print('{} stocks are updated with data as of {}'.format(col_attri_df.Stock.nunique(),
                                                             col_attri_df.Date_UTC.max().strftime('%Y-%m-%d %H:%M')
