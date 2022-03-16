@@ -19,8 +19,8 @@ import yfinance as yf
 yf_args={'owner':'airflow',
          'depends_on_past':False,
          'start_date':datetime.datetime(2021,9,1),
-         'retries':3,
-         'retry_delay':timedelta(minutes=5)
+         'retries':1,
+         #'retry_delay':timedelta(minutes=5)
         }
 
 
@@ -91,6 +91,26 @@ def fetch_stockprice_all(stock_exchange=['NASDAQ','NYSE'],start_vals=None,n_samp
             
             count+=1
     return pd.concat(stock_list)
+
+
+
+
+## Regression ## 
+def linear_reg_analysis_for(df):
+    lr_model=smf.ols('Close ~ DATE_ORDER',data=df).fit()
+    #lr_model=sm.OLS(x.Close,x.DATE_ORDER).fit()
+    
+    model_result={#'Stock':df.Stock[0],
+                  'R_squared':[lr_model.rsquared],
+                  'Coef':[lr_model.params[1]],
+                  'P_values':[lr_model.pvalues[1]],
+                  
+                  'Start_Date':df['Date'].min(),
+                  'End_Date':df['Date'].max(),
+                  'Num_records':[df.shape[0]],
+                  'Num_records_dist':[df.Date.nunique()]  
+                 }
+
 
 
 ###############
@@ -193,8 +213,8 @@ def pull_stock_attri(stocks=None,n_sample=None):
             col_attri.append(result)
             count+=1
             if count%25==0:
-                print('{} records downloaded, {:.1f}%'.format(count,
-                                                              count/len(stocks)*100
+                print('{:} records downloaded, {:.1f}%'.format(count,
+                                                               count/len(stocks)*100
                                                              ))
         
             if count%500==0:
@@ -227,7 +247,7 @@ def load_stock_attri():
                         if_exists='replace',
                         index=False,
                         chunksize=1000)
-    print('Data is updated: {}'.format(col_attri_df.Date_UTC.min().strftime('%Y-%m-%d %H:%M:%S')))
+    print('Data is updated: {:}'.format(col_attri_df.Date_UTC.min().strftime('%Y-%m-%d %H:%M:%S')))
 
 
 ## Recommendations ##
@@ -244,19 +264,27 @@ def pull_stock_recommendatins(stocks=None,n_sample=None):
     for i in stocks:
         try:
             stock_info=yf.Ticker('{}'.format(i))
-            df_recommends=stock_info.recommendations.reset_index()
-            df_recommends['Stock']=i
-            df_col.append(df_recommends)
-            count+=1
+            df_recommends=stock_info.recommendations#.reset_index(drop=True)
+            if df_recommends.empty:
+                continue
+            else:
+                df_recommends.reset_index(drop=False,inplace=True)
+                df_recommends.loc[:,'Stock']=i
+                df_col.append(df_recommends)
+                count+=1
+            
             if count%25==0:
-                print('{} records downloaded, {:.1f}%'.format(count,
-                                                              count/len(stocks)*100)
+                print('{:} records downloaded, {:.1f}%'.format(count,
+                                                               count/len(stocks)*100)
                      )
+            if count%500==0:
+                time.sleep(1) ## added Jan.10
         except AttributeError:
             continue
 
-        except ERROR:
-            continue
+        except Exception as ex:
+            print(ex)
+            pass
 
     df_col=pd.concat(df_col)
     df_col.rename(columns={'Date':'DATE',
@@ -269,7 +297,7 @@ def pull_stock_recommendatins(stocks=None,n_sample=None):
 
     ## saving
     joblib.dump(df_col,'/home/ubuntu/projects/Stock_Price_Prediction/data/stock_anayst_recommendations.pkl')
-    print('Stcok recommendations are downloaded: {:,.0f} stocks, {:,.0f} records'.format(df_col.Stock.nunique(),
+    print('Stcok recommendations are downloaded: {:,.0f} stocks, {:,.0f} records'.format(df_col.STOCK.nunique(),
                                                                                          df_col.shape[0]
                                                                                      ))
 
@@ -278,7 +306,7 @@ def pull_stock_insti_holders(stocks=None,n_sample=None):
     if stocks is None:
         stocks=all_tickers.Symbol.unique()
     if (n_sample is not None) & (np.where(n_sample is None,0,n_sample)<len(stocks)):
-        stocks=sample(set(stocks),n_sample)
+        stocks=samplei(set(stocks),n_sample)
 
     df_col=[]
     count=0
@@ -287,19 +315,28 @@ def pull_stock_insti_holders(stocks=None,n_sample=None):
         try:
             stock_info=yf.Ticker(i)
             df_insti_hold=stock_info.institutional_holders.reset_index(drop=True)
-            df_insti_hold['Stock']=i
-            df_col.append(df_insti_hold)
-            count+=1
+            
+            #df_insti_hold.loc[:,'Stock']=i # df_insti_hold['Stock']=i
+            #df_col.append(df_insti_hold)
+            #count+=1
+            if df_insti_hold.empty:
+                continue
+            else: 
+                df_insti_hold.loc[:,'Stock']=i
+                df_col.append(df_insti_hold)
+                count+=1
 
             if count%25==0:
-                print('{} records downloaded, {:.1f}%'.format(count,
-                                                              count/len(stocks)*100
-                                                             ))
+                print('{:} records downloaded, {:.1f}%'.format(count,
+                                                               count/len(stocks)*100
+                                                              ))
+           # if count==5775:
+           #     time.sleep(10) ## added Jan.10
         except AttributeError:
             continue
 
-        except Error:
-            continue
+        except Exception:
+            pass
 
     df_col=pd.concat(df_col)
     df_col.dropna(how='all',axis=1,inplace=True)
@@ -313,9 +350,37 @@ def pull_stock_insti_holders(stocks=None,n_sample=None):
 
     ## saving
     joblib.dump(df_col,'/home/ubuntu/projects/Stock_Price_Prediction/data/stock_institutional_holders.pkl')
-    print('Stock institutional holders info has been downloaded: {:,.0f}, {:,.0f} records'.format(df_col.Stock.nunique(),
+    print('Stock institutional holders info has been downloaded: {:,.0f}, {:,.0f} records'.format(df_col.STOCK.nunique(),
                                                                                                   df_col.shape[0]
                                                                                                  ))
+
+
+def pull_stock_insti_holders_test():
+    df_col_2=[]
+    count=0
+    stocks=all_tickers.Symbol.unique()
+    for i in stocks:
+        try:
+            stock_info=yf.Ticker(i)
+            df_insti_hold=stock_info.institutional_holders.reset_index(drop=True)
+            result={i:df_insti_hold}
+            df_col_2.append(result)
+            
+            count+=1
+            
+            if count==5775:
+                time.sleep(10)
+                
+            if count%50==0:
+                print('{:} records downloaded, {:.1f}%'.format(count,
+                                                               count/len(stocks)*100
+                                                              ))
+        except AttributeError:
+            continue
+    joblib.dump(df_col_2,'/home/ubuntu/data/stock_price_pred/df_insti_hold.pkl')
+
+
+
 
 
 ## Loading
@@ -331,8 +396,8 @@ def load_Recommends_InstiHolders():
                          index=False,
                          chunksize=1000
                         )
-    print('STOCK_RECOMMENDS is updated: {:,.0f} records, {}'.format(df_recommends.shape[0],
-                                                                    df_recommends.REFRESH_DATE.min().strftime('%Y-%m-%d %H:%M:%S')
+    print('STOCK_RECOMMENDS is updated: {:,.0f} records, {:}'.format(df_recommends.shape[0],
+                                                                     df_recommends.REFRESH_DATE.min().strftime('%Y-%m-%d %H:%M:%S')
                                                                    ))
 
     ## Institutional Holders ##
@@ -346,16 +411,144 @@ def load_Recommends_InstiHolders():
                          index=False,
                          chunksize=1000
                         )
-    print('STOCK_INSTI_HOLDERS is updated: {:,.0f} records, {}'.format(df_insti_hold.shape[0],
-                                                                       df_insti_hold.REFRESH_DATE.min().strftime('%Y-%m-%d %H:%M:%S')
+    print('STOCK_INSTI_HOLDERS is updated: {:,.0f} records, {:}'.format(df_insti_hold.shape[0],
+                                                                        df_insti_hold.REFRESH_DATE.min().strftime('%Y-%m-%d %H:%M:%S')
                                                                        ))
+
+
+
+
+
+## Implemment ##
+## Data Cleaning
+def stock_data_cleaning():
+    ## 1 Data Loading ##
+    # 1.1 Stock data - last 60 days
+    df=pd.read_sql("""SELECT *
+                      FROM STOCK_PRED.ALL_STOCK_HIST
+                      WHERE DATE>=CURDATE()-INTERVAL 60 DAY
+                             """,
+                   con=engine)
+    print(df.shape)
+    print(df.Stock.nunique())
+    print(df['Date'].max(),df['Date'].min())
+
+    if df.loc[df.Date==df.Date.max(),:].shape[0]>5000:
+        ## 2 Data Cleaning ##
+        # 2.1 Remove NAs
+        df_1=df.dropna(axis=0,how='any')
+
+        # 2.2 Remove accounts with Negative Stock price
+        negative_stocks=df_1.loc[df_1.Close<0,'Stock'].unique()
+        df_1=df_1.loc[~df_1.Stock.isin(negative_stocks),:]
+
+        # 2.3 Keep active stocks
+        active_stocks=df_1.loc[df_1.Date==df_1.Date.max(),'Stock'].to_list()
+        df_2=df_1.loc[df_1.Stock.isin(active_stocks),:].reset_index(drop=True)
+
+        # 2.4 Add DATE_ORDER
+        df_2.loc[:,'DATE_ORDER']=df_2.groupby('Stock').Date.transform(lambda x:x.rank(method='first',ascending=True))
+
+        stock_mapping=pd.read_sql("""SELECT *
+                                     FROM STOCK_PRED.NYSE_NASDAQ_TICKERS
+                                  """,con=engine)
+
+        # 2.4 Merging
+        df_3=pd.merge(df_2,
+                      stock_mapping.loc[:,['Symbol','Name','Country','IPOYear','Sector','Industry']],
+                      how='left',
+                      left_on='Stock',
+                      right_on='Symbol'
+                     )
+        df_3.drop(['Symbol'],axis=1,inplace=True)
+        df_3.sort_values(by=['Stock','Date'],ascending=True,inplace=True)
+
+        ## 3. Saving ##
+        joblib.dump(df_3,'/home/ubuntu/data/stock_price_pred/ALL_STOCK_L60D.pkl')
+        
+        print('{:,.0f} records saved, data as of {:s}'.format(df_3.shape[0],
+                                                              df_3.Date.max().strftime('%Y-%m-%d')
+                                                             ))
+
+    else:
+        print('Data issue: latest data {:s} only as {:,.0f} rows'.format(df.Date.max().strftime('%Y-%m-%d'),
+                                                                         df.loc[df.Date==df.Date.max(),:].shape[0]
+                                                                        ))
+
+
+
+
+
+## Applying and Loading
+def impl_linear_reg():
+    ## 1 Data Loading & Preprocessing ##
+    df_3=joblib.load('/home/ubuntu/data/stock_price_pred/ALL_STOCK_L60D.pkl')
+    print(df_3.shape)
+    print(df_3.Date.max())
+
+    stock_mapping=pd.read_sql("""SELECT *
+                                 FROM STOCK_PRED.NYSE_NASDAQ_TICKERS
+                              """,con=engine)
+
+
+    ## 2 Modeling Implementing ##
+    linear_reg_sum=df_3.groupby(['Stock']).apply(linear_reg_analysis_for).reset_index(drop=False)
+    print(linear_reg_sum.shape)
+
+    ## 3. Processing ##
+    # 3.1 Add new columns
+    linear_reg_sum.loc[:,'WT_Coef']=linear_reg_sum.R_squared*linear_reg_sum.Coef
+    linear_reg_sum.loc[:,'Model_date']=datetime.now(tz=pytz.utc).astimezone(timezone('US/Pacific'))
+
+    # 3.2 Additional tables
+    stock_strt_end_price=df_3.groupby('Stock').agg(start_price=('Close','first'),
+                                                   end_price=('Close','last')
+                                                  ).reset_index(drop=False)
+    linear_reg_sum_2=pd.merge(linear_reg_sum,
+                              stock_strt_end_price,
+                              how='left',
+                              on='Stock'
+                             ).assign(growth_rate=lambda x:(x.end_price-x.start_price)/x.start_price)
+
+    linear_reg_sum_2=pd.merge(linear_reg_sum_2,
+                              stock_mapping.loc[:,['Symbol','Name','Industry','SE']],
+                              how='left',
+                              left_on='Stock',
+                              right_on='Symbol')
+
+    linear_reg_sum_2.drop('level_1',axis=1,inplace=True)
+
+    # 3.3 Reorder columns
+    linear_reg_sum_2=linear_reg_sum_2.loc[:,['Model_date',
+                                             'Stock','Name','Industry',
+                                             'R_squared','Coef','P_values','WT_Coef',
+                                             'Start_Date','End_Date','start_price','end_price',
+                                             'Num_records_dist','growth_rate']]
+
+    print(linear_reg_sum_2.shape)
+
+
+    ## 4. Load to MySQL ##
+    linear_reg_sum_2.to_sql(name='LINEAR_REG_L40',
+                            con=engine,
+                            if_exists='append',
+                            index=False,
+                            chunksize=1000)
+
+    print('{0:,.0f} records created; max stock price date: {1:s}; model implemented date: {2:s}'.format(linear_reg_sum_2.shape[0],
+                                                                                                        linear_reg_sum_2.End_Date.max().strftime('%Y-%m-%d'),
+                                                                                                        linear_reg_sum_2.Model_date.min().strftime('%Y-%m-%d %H:%M:%S')
+                                                                                                       ))
+
+
+
 
 ###############
 ## Task 
 ###############
 with DAG('Stock_Price_Prediction',
          default_args=yf_args,
-         schedule_interval='30 1 * * *',
+         schedule_interval='30 1 * * 2-6',
          catchup=False
         ) as dag:
     yf_data_load=PythonOperator(task_id='Yahoo_Finance_Data_Pull',python_callable=update_all_stocks_2)
@@ -366,12 +559,18 @@ with DAG('Stock_Price_Prediction',
     Pull_stock_recommendations=PythonOperator(task_id='Pull_stock_recommendations',python_callable=pull_stock_recommendatins)
     # institutional holders
     Pull_stock_insti_holders=PythonOperator(task_id='Pusll_stock_institutional_holders',python_callable=pull_stock_insti_holders)
+    #Pull_stock_insti_holders_test=PythonOperator(task_id='pull_stock_insti_holders_test',python_callable=pull_stock_insti_holders_test)
     # Load recomenedation & institutional holders
     Load_recommendations_InstiHolders=PythonOperator(task_id='Load_recommendations_institutional_holders',python_callable=load_Recommends_InstiHolders)
+    #######################
+    ## Linear Regression ##
+    Clean_stock_data=PythonOperator(task_id='Clean_stock_data',python_callable=stock_data_cleaning)
+    Apply_linear_model=PythonOperator(task_id='Apply_linear_model',python_callable=impl_linear_reg)
 
-    
-#yf_data_load>>[Pull_stock_attri,Pull_stock_recommendations, Pull_stock_insti_holders]
-yf_data_load>> Pull_stock_attri >> [Pull_stock_recommendations, Pull_stock_insti_holders]
-Pull_stock_attri>>Load_stock_attri
+yf_data_load >> [Pull_stock_attri, Pull_stock_recommendations, Pull_stock_insti_holders, Clean_stock_data]
+Clean_stock_data >> Apply_linear_model
+#yf_data_load>> Pull_stock_attri >> [Pull_stock_recommendations, Pull_stock_insti_holders]
+Pull_stock_attri>> Load_stock_attri
 [Pull_stock_recommendations, Pull_stock_insti_holders]>>Load_recommendations_InstiHolders
+#Load_recommendations_InstiHolders>> pull_stock_insti_holders_test
 # use with: https://airflow.apache.org/docs/apache-airflow/stable/tutorial.html
