@@ -14,6 +14,13 @@ import configparser as cp
 from sqlalchemy import create_engine
 import mysql.connector
 import yfinance as yf
+import pytz
+
+
+import statsmodels.formula.api as smf
+import math
+
+
 
 ## Airflow setup
 yf_args={'owner':'airflow',
