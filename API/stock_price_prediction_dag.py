@@ -117,6 +117,7 @@ def linear_reg_analysis_for(df):
                   'Num_records':[df.shape[0]],
                   'Num_records_dist':[df.Date.nunique()]  
                  }
+    return pd.DataFrame(model_result)
 
 
 
