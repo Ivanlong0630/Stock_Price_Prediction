@@ -9,6 +9,7 @@ import joblib
 import os
 import time
 import datetime
+from datetime import timedelta,date
 from pytz import timezone
 import configparser as cp
 from sqlalchemy import create_engine
@@ -506,7 +507,7 @@ def impl_linear_reg():
     ## 3. Processing ##
     # 3.1 Add new columns
     linear_reg_sum.loc[:,'WT_Coef']=linear_reg_sum.R_squared*linear_reg_sum.Coef
-    linear_reg_sum.loc[:,'Model_date']=datetime.now(tz=pytz.utc).astimezone(timezone('US/Pacific'))
+    linear_reg_sum.loc[:,'Model_date']=datetime.datetime.now(tz=pytz.utc).astimezone(timezone('US/Pacific'))
 
     # 3.2 Additional tables
     stock_strt_end_price=df_3.groupby('Stock').agg(start_price=('Close','first'),
@@ -525,6 +526,10 @@ def impl_linear_reg():
                               right_on='Symbol')
 
     linear_reg_sum_2.drop('level_1',axis=1,inplace=True)
+
+    # dal with inf and -inf
+    linear_reg_sum_2.loc[(linear_reg_sum_2.R_squared==math.inf)|(linear_reg_sum_2.R_squared==-math.inf),'R_squared']=np.nan
+    linear_reg_sum_2.loc[(linear_reg_sum_2.WT_Coef==math.inf)|(linear_reg_sum_2.WT_Coef==-math.inf),'WT_Coef']=np.nan
 
     # 3.3 Reorder columns
     linear_reg_sum_2=linear_reg_sum_2.loc[:,['Model_date',
