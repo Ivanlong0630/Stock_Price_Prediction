@@ -78,11 +78,12 @@ def fetch_stockprice_all(stock_exchange=['NASDAQ','NYSE'],start_vals=None,n_samp
     
     for s in stock_exchange:
         for i in all_tickers.loc[all_tickers.SE==s,'Symbol'].tolist():
-            if count%50==0:
-            #   time.sleep(3)
+            if count%100==0:
             #   print('Wait every 50 queries; Progress: {:.2f}%'.format(count/all_tickers.shape[0]*100))
+                time.sleep(1)
                 print('Progress: {:.2f}%'.format(count/all_tickers.shape[0]*100))
-
+            
+            time.sleep(0.01)
             df=yf.download(tickers=i,
                            periods='max',
                            start=start_vals,
